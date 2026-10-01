@@ -23,7 +23,10 @@ Escribe una consulta que devuelva el sueldo medio por departamento para departam
 
 Solución:
 ```sql
-
+select dpto, avg(sueldo) as sueldo_medio
+from empleado
+group by dpto
+having count(distinct dni) > 1;
 ```
 
 Resultado:
@@ -160,6 +163,13 @@ select
 from departamento;
 ```
 
+```sql
+select nombre, director, date(fechaIngresoDirector, 'localtime') as mas_antiguo,  time(fechaIngresoDirector,'localtime') as hora
+from departamento
+order by date(fechaIngresoDirector, 'localtime') ASC
+limit 1;
+```
+
 Tabla resultado:
 
 | nombre       | director  | mas_antiguo | hora     |
@@ -242,7 +252,10 @@ Escribe una consulta para obtener el nombre, apellido1 y fechaNac de los emplead
 
 Solución:
 ```sql
-
+SELECT nombre, apellido1, fechaNac
+FROM empleado
+WHERE date(fechaNac) > date('2025-01-01', '-71 years')
+  AND date(fechaNac) <= date('2025-01-01', '-59 years');
 ```
 
 Tabla resultado:
@@ -519,7 +532,14 @@ Escribe una consulta que devuelva los empleados con más de un familiar que no s
 
 Solución:
 ```sql
-
+SELECT empleado AS empleado
+FROM familiar
+GROUP BY empleado
+HAVING COUNT(*) > 1
+EXCEPT
+SELECT supervisor
+FROM empleado
+WHERE supervisor IS NOT NULL AND supervisor != '';
 ```
 
 Tabla resultado:
@@ -649,8 +669,19 @@ Escribe una consulta que devuelva el dni de los empleados que no tienen familiar
 
 Solución:
 ```sql
+SELECT dni
+FROM empleado
+EXCEPT
+SELECT empleado
+FROM familiar
 
+UNION
 
+SELECT supervisor AS dni
+FROM empleado
+WHERE supervisor IS NOT NULL AND supervisor != ''
+GROUP BY supervisor
+HAVING COUNT(*) > 2;
 ```
 
 Tabla resultado:
@@ -770,7 +801,38 @@ Escribe una consulta que devuelva los proyectos del departamento con mayor núme
 
 Solución:
 ```sql
-
+WITH combinado AS (
+    -- Proyectos con indicador de empleado en 0
+    SELECT dpto, nombre, ubicacion, 0 AS es_empleado
+    FROM PROYECTO
+    
+    UNION ALL
+    
+    -- Empleados con columnas de proyecto a NULL y marca en 1
+    SELECT dpto, NULL AS nombre, NULL AS ubicacion, 1 AS es_empleado
+    FROM EMPLEADO
+),
+calculo AS (
+    SELECT 
+        dpto,
+        nombre,
+        ubicacion,
+        SUM(es_empleado) OVER (PARTITION BY dpto) AS total_empleados
+    FROM combinado
+),
+maximo AS (
+    SELECT 
+        dpto,
+        nombre,
+        ubicacion,
+        total_empleados,
+        MAX(total_empleados) OVER () AS max_empleados
+    FROM calculo
+)
+SELECT nombre, ubicacion, dpto
+FROM maximo
+WHERE total_empleados = max_empleados 
+  AND nombre IS NOT NULL;
 ```
 
 Tabla resultado:
